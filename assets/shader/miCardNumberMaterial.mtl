@@ -1,0 +1,19 @@
+{
+  "__type__": "cc.Material",
+  "_name": "miCardNumberMaterial",
+  "_objFlags": 0,
+  "_native": "",
+  "_effectAsset": {
+    "__uuid__": "baf20088-e6c6-4009-8b7d-a758ed3547c6"
+  },
+  "_techniqueIndex": 0,
+  "_techniqueData": {
+    "0": {
+      "props": {},
+      "defines": {
+        "USE_TEXTURE": true,
+        "INPUT_IS_GAMMA": false
+      }
+    }
+  }
+}

@@ -1,0 +1,143 @@
+// Copyright (c) 2017-2018 Xiamen Yaji Software Co., Ltd.  
+
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: vs
+      frag: fs
+      blendState:
+        targets:
+        - blend: true
+      rasterizerState:
+        cullMode: none
+      properties:
+        texture: { value: white }
+        alphaThreshold: { value: 0.5 }
+}%
+
+
+CCProgram vs %{
+  precision highp float;
+
+  #include <cc-global>
+  #include <cc-local>
+
+  in vec3 a_position;
+  in vec4 a_color;
+  out vec4 v_color;
+
+  #if USE_TEXTURE
+  in vec2 a_uv0;
+  out vec2 v_uv0;
+  #endif
+
+  uniform PointData {
+    vec4 xlist = vec4(0.0,0.0,0.0,0.0);
+    vec4 ylist = vec4(0.0,0.0,0.0,0.0);
+    vec2 disX = vec2(0.0,0.0);
+    vec2 disY = vec2(0.0,0.0);
+    float sprWidth = 0.0;
+    float sprHight = 0.0;
+  };
+  
+
+  void main () {
+
+
+    vec4 pos = vec4(a_position, 1);
+
+    #if CC_USE_MODEL
+    pos = cc_matViewProj * cc_matWorld * pos;
+    #else
+    pos = cc_matViewProj * pos;
+    #endif
+
+    #if USE_TEXTURE
+    v_uv0 = a_uv0;
+    #endif
+
+    v_color = a_color;
+
+    gl_Position = pos;
+  }
+}%
+
+
+CCProgram fs %{
+  precision highp float;
+  
+  #include <alpha-test>
+  #include <texture>
+
+  in vec4 v_color;
+
+  #if USE_TEXTURE
+  in vec2 v_uv0;
+  uniform sampler2D texture;
+  #endif
+
+  uniform PointData {
+    vec4 xlist = vec4(0.0,0.0,0.0,0.0);
+    vec4 ylist = vec4(0.0,0.0,0.0,0.0);
+    vec2 disX = vec2(0.0,0.0);
+    vec2 disY = vec2(0.0,0.0);
+    float sprWidth = 0.0;
+    float sprHight = 0.0;
+  };
+
+
+  bool isHide(float px , float py)
+{   
+
+    bool b = false;
+    float dx = px*sprWidth;
+    float dy = py*sprHight;
+    if (disX[0] != 0.0 || disX[1] != 0.0)
+    {
+        if (dx >= disX[0] && dx <= disX[1]){
+            return true;
+        }
+    }
+    else if (disY[0] != 0.0 || disY[1] != 0.0)
+    {
+        if (dy >= disY[0] && dy <= disY[1]){
+            return true;
+        }
+    }
+    
+    if ( ((ylist[0]>=dy) != (ylist[2]>=dy)) && (dx < (xlist[2]-xlist[0]) * (dy-ylist[0]) / (ylist[2]-ylist[0]) + xlist[0]) )
+    {
+       b = !b;
+    }
+    if ( ((ylist[1]>=dy) != (ylist[0]>=dy)) && (dx < (xlist[0]-xlist[1]) * (dy-ylist[1]) / (ylist[0]-ylist[1]) + xlist[1]) )
+    {
+       b = !b;
+    }
+    if ( ((ylist[2]>=dy) != (ylist[1]>=dy)) && (dx < (xlist[1]-xlist[2]) * (dy-ylist[2]) / (ylist[1]-ylist[2]) + xlist[2]) )
+    {
+       b = !b;
+    }
+
+    return b;
+  }
+
+  void main () {
+    vec4 o = vec4(1, 1, 1, 1);
+
+    #if USE_TEXTURE
+      CCTexture(texture, v_uv0, o);
+    #endif
+
+    o *= v_color;
+
+    ALPHA_TEST(o);
+
+    bool hide = isHide(v_uv0.x,v_uv0.y);
+    if (hide)
+    {
+      o.a = 0.0;
+    }
+
+    gl_FragColor = o;
+  }
+}%
