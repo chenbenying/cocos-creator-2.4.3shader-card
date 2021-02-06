@@ -1,0 +1,19 @@
+{
+  "__type__": "cc.Material",
+  "_name": "miCardNumberMaterialClone",
+  "_objFlags": 0,
+  "_native": "",
+  "_effectAsset": {
+    "__uuid__": "d2d67542-91e6-433d-839c-9ea9d28d1804"
+  },
+  "_techniqueIndex": 0,
+  "_techniqueData": {
+    "0": {
+      "props": {},
+      "defines": {
+        "USE_TEXTURE": true,
+        "INPUT_IS_GAMMA": false
+      }
+    }
+  }
+}

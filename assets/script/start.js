@@ -13,8 +13,8 @@ cc.Class({
         cc.dynamicAtlasManager.enabled = false;
         this._bgMaterialNode = this.node.getChildByName("cardBg")
         this._zmMaterialNode = this._bgMaterialNode.getChildByName("cardNum")
-        this._bgMaterial = this._bgMaterialNode.getComponent(cc.Sprite).sharedMaterials[0];
-        this._zmMaterial = this._zmMaterialNode.getComponent(cc.Sprite).sharedMaterials[0];
+        this._bgMaterial = this._bgMaterialNode.getComponent(cc.Sprite).getMaterials()[0];
+        this._zmMaterial = this._zmMaterialNode.getComponent(cc.Sprite).getMaterials()[0];
         this.initBox = this._bgMaterialNode.getBoundingBoxToWorld();
         this.box = this._bgMaterialNode.getBoundingBoxToWorld();
         cc.log(">>>>>>>>>this.box:",this.box)
