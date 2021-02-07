@@ -1,7 +1,5 @@
 
 
-
-
 cc.Class({
     extends: cc.Component,
 
@@ -149,10 +147,14 @@ cc.Class({
         let node = this._bgMaterialNode
         let angle = node.angle;
         let nodePos = node.convertToWorldSpaceAR(cc.v2(0,0));
-        //这里要转换一下坐标，用相对图片坐标百分比的坐标
-        //在着色器中,图片的原点是在图片的左上角,向下是Y轴的正坐标(总长度为1),向右是X轴的正坐标(总长度为1)
+        //在着色器中,v_uv0的原点是在图片的左上角,向下是Y轴的正坐标(总长度为1),向右是X轴的正坐标(总长度为1)
         //原点的位置会跟随图片旋转，一直保持在图片位置左上角
-        //我也不懂cocos着色器的坐标为什么这么设计,都是代码试出来确定的
+        //Y轴向下这么设计，可能是opengl是右手坐标系的原因
+        //这里要转换一下坐标，用相对图片坐标百分比的坐标
+
+        //保存一下用户设置扑克正面的对称坐标处理
+        let worldFirstPos = firstPos;
+        let worldScondPos = secondPos;
 
         //所以，这里要获取两点旋转之前的坐标，角度相反就可以获取到(这里可以思考一下)
         firstPos = this.getRotatePos(nodePos,firstPos,-angle);
@@ -163,19 +165,66 @@ cc.Class({
         let pWidth = node.width*node.scaleX;
         let pHeight = node.height*node.scaleY;
         let left_up = cc.v2(-pWidth*anchorX+nodePos.x,pHeight*(1-anchorY)+nodePos.y);
+        let left_bottom = cc.v2(-pWidth*anchorX+nodePos.x,-pHeight*anchorY+nodePos.y);
         //获取百分比坐标
         firstPos.x = (firstPos.x - left_up.x)/pWidth;
         firstPos.y = (left_up.y - firstPos.y)/pHeight;  //向下是正方向,所以是left_up.y - firstPos.y
         secondPos.x = (secondPos.x - left_up.x)/pWidth;
-        secondPos.y = (left_up.y - secondPos.y)/pHeight;  //向下是正方向,secondPos.y - secondPos.y
+        secondPos.y = (left_up.y - secondPos.y)/pHeight;  //向下是正方向,所以是secondPos.y - secondPos.y
 
         //cc.log(">>>>>>>>>>>>firstPos:",firstPos);
         //cc.log(">>>>>>>>>>>>secondPos:",secondPos);
-        //接下我们只要把参数传给着色器
+        //接下把参数传给着色器
         this._bgMaterial.effect.setProperty('firstPos',firstPos);
         this._bgMaterial.effect.setProperty('secondPos',secondPos);
         this._zmMaterial.effect.setProperty('firstPos', firstPos);
         this._zmMaterial.effect.setProperty('secondPos', secondPos);
+
+        //扑克对称处理,取扑克左下角作为原点
+        left_bottom = this.getRotatePos(nodePos,left_bottom,angle); //获取旋转后的点
+        this._zmMaterial.effect.setProperty('originPos', cc.v2(left_bottom.x,left_bottom.y));
+        this._zmMaterial.effect.setProperty('worldFirstPos', worldFirstPos);
+        this._zmMaterial.effect.setProperty('worldScondPos', worldScondPos);
+
+
+        cc.log(">>>>>>>>>>>>worldFirstPos",worldFirstPos);
+        cc.log(">>>>>>>>>>>>worldScondPos",worldScondPos);
+
+        let pos1 = cc.v2(worldFirstPos.x + (worldScondPos.x - worldFirstPos.x)*0.5 , worldFirstPos.y + (worldScondPos.y - worldFirstPos.y)*0.5);
+        this.node.getChildByName("mid").position = this.node.convertToNodeSpaceAR(pos1);
+        cc.log(">>>>>>>pos1:",pos1)
+        let k = ( worldScondPos.y - worldFirstPos.y)/(worldScondPos.x - worldFirstPos.x);
+        k = -1.0/k;
+        cc.log(">>>>>>>k:",k)
+        let b = (pos1.y - k*pos1.x);
+        cc.log(">>>>>>>b:",b);
+        let pos2 = cc.v2(0,b);
+
+        this.node.getChildByName("xz").position = this.node.convertToNodeSpaceAR(pos2);
+        this.node.getChildByName("yz").position = this.node.convertToNodeSpaceAR(cc.v2(-b/k,0));
+        let sp = this.node.getChildByName("spr1").convertToWorldSpaceAR(cc.v2(0,0));
+        let symmetricPos = this.getSymmetricPos(sp,pos1,pos2);
+        cc.log(">>>>>>>>>symmetricPos:",symmetricPos);
+        symmetricPos = this.node.convertToNodeSpaceAR(symmetricPos);
+        this.node.getChildByName("spr2").position = symmetricPos;
+    },
+
+
+    getSymmetricPos:function(sp,pos1,pos2){
+        let disX = pos2.x - pos1.x;
+        let disY = pos2.y - pos1.y;
+        if (disX == 0.0)
+        {
+            let x = pos1.x - sp.x;
+            return cc.v2(pos1.x + x,sp.y);
+        }
+        //获取截线斜率
+        let k1 = disY/disX;
+
+        let y = (sp.y*k1*k1  + sp.x*k1 + k1*sp.x - k1*pos1.x*2.0 + pos1.y*2.0 - sp.y)/(1.0+k1*k1);
+        let x = (y - sp.y)/(-1.0/k1)+sp.x;
+
+        return cc.v2(x,y);
     },
 
     touchBegan:function(event){

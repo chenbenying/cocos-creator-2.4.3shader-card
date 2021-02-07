@@ -34,6 +34,9 @@ CCProgram vs %{
   uniform PointData {
     vec2 firstPos;
     vec2 secondPos;
+    vec2 worldFirstPos;
+    vec2 worldScondPos;
+    vec2 originPos;
   };
 
 
@@ -57,35 +60,32 @@ CCProgram vs %{
   
 
   void main () {
-    
 
-    vec4 pos = vec4(a_position,1.0);
+    vec2 firstPoint = vec2(worldFirstPos.x - originPos.x , worldFirstPos.y - originPos.y);
+    vec2 secondPoint = vec2(worldScondPos.x - originPos.x , worldScondPos.y - originPos.y);
+
+    vec2 pos1 = vec2(firstPoint.x + (secondPoint.x - firstPoint.x)*0.5 , firstPoint.y + (secondPoint.y - firstPoint.y)*0.5);
+    float k = ( secondPoint.y - firstPoint.y)/(secondPoint.x - firstPoint.x);
+    k = -1.0/k;
+    float b = (pos1.y - k*pos1.x);
+    vec2 pos2 = vec2(0,b);
+
+    vec2 sp = vec2(a_position.x - originPos.x, a_position.y - originPos.y);
+    vec2 symmetricPos = getSymmetricPos(sp,pos1,pos2);
+    symmetricPos.x = symmetricPos.x + originPos.x;
+    symmetricPos.y = symmetricPos.y + originPos.y;
+    vec4 pos = vec4(symmetricPos,a_position.z,1.0);
 
     #if CC_USE_MODEL
-    pos = cc_matViewProj * cc_matWorld * pos;
+    pos = cc_matViewProj * cc_matWorld * pos;         //这边计算得到的是DNC坐标系位置 cc_matViewProj应该是投影矩阵，cc_matWorld不知道是啥
     #else
-    pos = cc_matViewProj * pos;
+    pos = cc_matViewProj * pos;                       //这边计算得到的是DNC坐标系位置，屏幕中间(0,0) 左上角(-1,1) 左下角(-1,-1)右边同理
     #endif
 
     #if USE_TEXTURE
     v_uv0 = a_uv0;
     #endif
-
-    float firstY =  -firstPos.y;
-    float secondY = -secondPos.y;
-    vec2 mid = vec2( firstPos.x +(secondPos.x - firstPos.x)*0.5, firstPos.y + (secondPos.y - firstPos.y)*0.5);
-    float k = ( secondPos.y - firstPos.y)/(secondPos.x - firstPos.x);
-    k = -1.0/k;
-    float b = (mid.y -  k*mid.x);
-    vec2 pos1 = vec2(0,b);
-    vec2 pos2 = vec2(-b/k,0);
-    vec2 sp = vec2(pos.x, pos.y);
-    vec2 symmetricPos = getSymmetricPos(sp,pos1,mid);
-    vec4 tmp_pos = vec4(a_position.x, a_position.y,a_position.z, 1.0);
-    tmp_pos.x = symmetricPos.x ;
-    tmp_pos.y = symmetricPos.y;
-
-    pos = tmp_pos;
+    
 
     v_color = a_color;
 
@@ -110,6 +110,9 @@ CCProgram fs %{
   uniform PointData {
     vec2 firstPos;
     vec2 secondPos;
+    vec2 worldFirstPos;
+    vec2 worldScondPos;
+    vec2 originPos;
   };
 
   //可以根据两个点来判断是否隐藏坐标
@@ -129,7 +132,7 @@ CCProgram fs %{
     float k = ( secondY - firstY)/(secondPos.x - firstPos.x);
     k = -1.0/k;
     float b = (firstY + (secondY - firstY)*0.5) -  k* (firstPos.x +(secondPos.x - firstPos.x)*0.5);
-    float y = k*(sp.x) + b;
+    float y = k*sp.x + b;
     //从上往下
     if (secondY - firstY < 0.0 && -sp.y > y){
         return true;
