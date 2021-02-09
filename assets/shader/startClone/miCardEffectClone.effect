@@ -26,6 +26,10 @@ CCProgram vs %{
   in vec4 a_color;
   out vec4 v_color;
 
+  out vec4 v_firstPos;    //归一化第一个坐标
+  out vec4 v_secondPos;   //归一化第二个坐标
+  out vec4 v_thisPos;     //归一化当前坐标坐标
+
   #if USE_TEXTURE
   in vec2 a_uv0;
   out vec2 v_uv0;
@@ -41,11 +45,18 @@ CCProgram vs %{
   void main () {
 
     vec4 pos = vec4(a_position,1.0);
+    v_firstPos = vec4(firstPos,a_position.z,1.0);
+    v_secondPos = vec4(secondPos,a_position.z,1.0);
+
 
     #if CC_USE_MODEL
     pos = cc_matViewProj * cc_matWorld * pos;
+    v_firstPos = cc_matViewProj * cc_matWorld * v_firstPos;
+    v_secondPos = cc_matViewProj * cc_matWorld * v_secondPos;
     #else
     pos = cc_matViewProj * pos;
+    v_firstPos = cc_matViewProj * v_firstPos;
+    v_secondPos = cc_matViewProj * v_secondPos;
     #endif
 
     #if USE_TEXTURE
@@ -53,6 +64,8 @@ CCProgram vs %{
     #endif
 
     v_color = a_color;
+
+    v_thisPos = vec4(pos);
 
     gl_Position = pos ;
   }
@@ -67,6 +80,10 @@ CCProgram fs %{
 
   in vec4 v_color;
 
+  in vec4 v_firstPos;    //归一化第一个坐标
+  in vec4 v_secondPos;   //归一化第二个坐标
+  in vec4 v_thisPos;    //归一化当前坐标坐标
+
   #if USE_TEXTURE
   in vec2 v_uv0;
   uniform sampler2D texture;
@@ -78,27 +95,25 @@ CCProgram fs %{
   };
 
   //可以根据两个点来判断是否隐藏坐标
-  bool isHide(vec2 sp){
-    //如果是左右横向垂直搓牌的情况下
-    if (secondPos.y == firstPos.y){
-      float xw = (secondPos.x - firstPos.x)*0.5;
-      if (  xw > 0.0  && xw - sp.x > 0.0){
+  bool isHide(){
+    //如果是左右横向搓牌的情况下
+    if (v_secondPos.y == v_firstPos.y){
+      float xw = (v_secondPos.x - v_firstPos.x)*0.5;
+      if (  xw > 0.0  && v_thisPos.x < xw + v_firstPos.x){
         return true;
-      }else if (xw < 0.0  && xw + sp.x > 0.0){
+      }else if (xw < 0.0  && v_thisPos.x > xw + v_firstPos.x){
         return true;
       }
     }
-    float firstY =  -firstPos.y;
-    float secondY = -secondPos.y;
     //用直线方程判断点的位置是在y轴的上方还是下方
-    float k = ( secondY - firstY)/(secondPos.x - firstPos.x);
+    float k = ( v_secondPos.y - v_firstPos.y)/(v_secondPos.x - v_firstPos.x);
     k = -1.0/k;
-    float b = (firstY + (secondY - firstY)*0.5) -  k* (firstPos.x +(secondPos.x - firstPos.x)*0.5);
-    float y = k*sp.x + b;
+    float b = (v_firstPos.y + (v_secondPos.y - v_firstPos.y)*0.5) -  k* (v_firstPos.x +(v_secondPos.x - v_firstPos.x)*0.5);
+    float y = k*v_thisPos.x + b;
     //从上往下
-    if (secondY - firstY < 0.0 && -sp.y > y){
+    if (v_secondPos.y  < v_firstPos.y && v_thisPos.y > y){
         return true;
-    }else if (secondY - firstY > 0.0 && -sp.y < y){    //从下往上
+    }else if (v_secondPos.y > v_firstPos.y && v_thisPos.y < y){    //从下往上
         return true;
     }
     return false;
@@ -116,7 +131,7 @@ CCProgram fs %{
 
     ALPHA_TEST(o);
 
-    if (isHide(v_uv0)){
+    if (isHide()){
       o.a = 0.0;
     }
 

@@ -68,13 +68,13 @@ cc.Class({
     },
 
     //判断一个点是否在扑克的边缘范围内(这里要考虑扑克旋转任意角度)
+    //这个功能其实可以使用cocos的PolygonCollider组件实现多边形点击判断，但是考虑用的扑克大小可能不一样，一个个点编辑太麻烦了，用代码实现兼容性更好点
     isInEdgeByNode:function(pos,node){
         //这里要把扑克的坐标转换成世界坐标，方便判断触摸点是否在扑克内
         let nodePos = node.convertToWorldSpaceAR(cc.v2(0,0));
         let anchorX = node.anchorX;
         let anchorY = node.anchorY;
         let angle = node.angle;
-        //cc.log(">>>>>>>>>>>>>node.width:",node.width);
         //图片的宽
         let pWidth = node.width*node.scaleX;
         //图片的高
@@ -83,9 +83,6 @@ cc.Class({
         let disWidth = Math.max(10,pWidth*this.pukeDisRatio);    //最小10像素
         //获取边缘的高度
         let disHeight = Math.max(10,pHeight*this.pukeDisRatio);  //最小10像素
-        // cc.log(">>>>>>angle:",angle);
-        // cc.log(">>>>>>disWidth:",disWidth);
-        // cc.log(">>>>>>disHeight:",disHeight);
         //获取扑克整体的四个顶点坐标(逆时针获取)
         //----左上角
         let left_up = cc.v2(-pWidth*anchorX+nodePos.x,pHeight*(1-anchorY)+nodePos.y);
@@ -117,18 +114,6 @@ cc.Class({
         inside_right_bottom = this.getRotatePos(nodePos,inside_right_bottom,angle);
         inside_right_up = this.getRotatePos(nodePos,inside_right_up,angle);
 
-        // cc.log(">>>>>>>>>>>left_up:",left_up);
-        // cc.log(">>>>>>>>>>>left_bottom:",left_bottom);
-        // cc.log(">>>>>>>>>>>right_bottom:",right_bottom);
-        // cc.log(">>>>>>>>>>>right_up:",right_up);
-
-        // cc.log("------------------------------:");
-
-        // cc.log(">>>>>>>>>>>inside_left_up:",inside_left_up);
-        // cc.log(">>>>>>>>>>>inside_left_bottom:",inside_left_bottom);
-        // cc.log(">>>>>>>>>>>inside_right_bottom:",inside_right_bottom);
-        // cc.log(">>>>>>>>>>>inside_right_up:",inside_right_up);
-
         //外部的x和y坐标列表
         let xlist = [left_up.x,left_bottom.x,right_bottom.x,right_up.x];
         let ylist = [left_up.y,left_bottom.y,right_bottom.y,right_up.y];
@@ -147,30 +132,31 @@ cc.Class({
         let node = this._bgMaterialNode
         let angle = node.angle;
         let nodePos = node.convertToWorldSpaceAR(cc.v2(0,0));
+        let anchorX = node.anchorX;
+        let anchorY = node.anchorY;
+        let pWidth = node.width*node.scaleX;
+        let pHeight = node.height*node.scaleY;
+
+        //----左下角作为图片原点
+        let left_bottom = cc.v2(-pWidth*anchorX+nodePos.x,-pHeight*anchorY+nodePos.y);
+        left_bottom = this.getRotatePos(nodePos,left_bottom,angle);
         //在着色器中,v_uv0的原点是在图片的左上角,向下是Y轴的正坐标(总长度为1),向右是X轴的正坐标(总长度为1)
         //原点的位置会跟随图片旋转，一直保持在图片位置左上角
         //Y轴向下这么设计，可能是opengl是右手坐标系的原因
         //这里要转换一下坐标，用相对图片坐标百分比的坐标
 
-        //保存一下用户设置扑克正面的对称坐标处理
-        let worldFirstPos = firstPos;
-        let worldScondPos = secondPos;
-
         //所以，这里要获取两点旋转之前的坐标，角度相反就可以获取到(这里可以思考一下)
-        firstPos = this.getRotatePos(nodePos,firstPos,-angle);
-        secondPos = this.getRotatePos(nodePos,secondPos,-angle);
-        //这里是获取图片未旋转之前的左上角坐标
-        let anchorX = node.anchorX;
-        let anchorY = node.anchorY;
-        let pWidth = node.width*node.scaleX;
-        let pHeight = node.height*node.scaleY;
-        let left_up = cc.v2(-pWidth*anchorX+nodePos.x,pHeight*(1-anchorY)+nodePos.y);
-        let left_bottom = cc.v2(-pWidth*anchorX+nodePos.x,-pHeight*anchorY+nodePos.y);
-        //获取百分比坐标
-        firstPos.x = (firstPos.x - left_up.x)/pWidth;
-        firstPos.y = (left_up.y - firstPos.y)/pHeight;  //向下是正方向,所以是left_up.y - firstPos.y
-        secondPos.x = (secondPos.x - left_up.x)/pWidth;
-        secondPos.y = (left_up.y - secondPos.y)/pHeight;  //向下是正方向,所以是secondPos.y - secondPos.y
+        // firstPos = this.getRotatePos(nodePos,firstPos,-angle);
+        // secondPos = this.getRotatePos(nodePos,secondPos,-angle);
+        // //这里是获取图片未旋转之前的左上角坐标
+        
+        
+        // let left_up = cc.v2(-pWidth*anchorX+nodePos.x,pHeight*(1-anchorY)+nodePos.y);
+        // //获取百分比坐标
+        // firstPos.x = (firstPos.x - left_up.x)/pWidth;
+        // firstPos.y = (left_up.y - firstPos.y)/pHeight;  //向下是正方向,所以是left_up.y - firstPos.y
+        // secondPos.x = (secondPos.x - left_up.x)/pWidth;
+        // secondPos.y = (left_up.y - secondPos.y)/pHeight;  //向下是正方向,所以是secondPos.y - secondPos.y
 
         //cc.log(">>>>>>>>>>>>firstPos:",firstPos);
         //cc.log(">>>>>>>>>>>>secondPos:",secondPos);
@@ -179,59 +165,20 @@ cc.Class({
         this._bgMaterial.effect.setProperty('secondPos',secondPos);
         this._zmMaterial.effect.setProperty('firstPos', firstPos);
         this._zmMaterial.effect.setProperty('secondPos', secondPos);
+        this._zmMaterial.effect.setProperty('originPos', left_bottom);
+        this._zmMaterial.effect.setProperty('xyRadio', pHeight/pWidth);
 
-        //扑克对称处理,取扑克左下角作为原点
-        left_bottom = this.getRotatePos(nodePos,left_bottom,angle); //获取旋转后的点
-        this._zmMaterial.effect.setProperty('originPos', cc.v2(left_bottom.x,left_bottom.y));
-        this._zmMaterial.effect.setProperty('worldFirstPos', worldFirstPos);
-        this._zmMaterial.effect.setProperty('worldScondPos', worldScondPos);
-
-
-        cc.log(">>>>>>>>>>>>worldFirstPos",worldFirstPos);
-        cc.log(">>>>>>>>>>>>worldScondPos",worldScondPos);
-
-        let pos1 = cc.v2(worldFirstPos.x + (worldScondPos.x - worldFirstPos.x)*0.5 , worldFirstPos.y + (worldScondPos.y - worldFirstPos.y)*0.5);
-        this.node.getChildByName("mid").position = this.node.convertToNodeSpaceAR(pos1);
-        cc.log(">>>>>>>pos1:",pos1)
-        let k = ( worldScondPos.y - worldFirstPos.y)/(worldScondPos.x - worldFirstPos.x);
-        k = -1.0/k;
-        cc.log(">>>>>>>k:",k)
-        let b = (pos1.y - k*pos1.x);
-        cc.log(">>>>>>>b:",b);
-        let pos2 = cc.v2(0,b);
-
-        this.node.getChildByName("xz").position = this.node.convertToNodeSpaceAR(pos2);
-        this.node.getChildByName("yz").position = this.node.convertToNodeSpaceAR(cc.v2(-b/k,0));
-        let sp = this.node.getChildByName("spr1").convertToWorldSpaceAR(cc.v2(0,0));
-        let symmetricPos = this.getSymmetricPos(sp,pos1,pos2);
-        cc.log(">>>>>>>>>symmetricPos:",symmetricPos);
-        symmetricPos = this.node.convertToNodeSpaceAR(symmetricPos);
-        this.node.getChildByName("spr2").position = symmetricPos;
+        //扑克对称处理,也取扑克左上角作为原点,必须是旋转后的坐标
+        //let originPos = this.getRotatePos(nodePos,left_up,angle);
+        // this._zmMaterial.effect.setProperty('originPos', originPos);
+        // this._zmMaterial.effect.setProperty('sprWidth', pWidth);
+        // this._zmMaterial.effect.setProperty('sprHeight', pHeight);
     },
 
-
-    getSymmetricPos:function(sp,pos1,pos2){
-        let disX = pos2.x - pos1.x;
-        let disY = pos2.y - pos1.y;
-        if (disX == 0.0)
-        {
-            let x = pos1.x - sp.x;
-            return cc.v2(pos1.x + x,sp.y);
-        }
-        //获取截线斜率
-        let k1 = disY/disX;
-
-        let y = (sp.y*k1*k1  + sp.x*k1 + k1*sp.x - k1*pos1.x*2.0 + pos1.y*2.0 - sp.y)/(1.0+k1*k1);
-        let x = (y - sp.y)/(-1.0/k1)+sp.x;
-
-        return cc.v2(x,y);
-    },
 
     touchBegan:function(event){
         let pos = event.getLocation();
-        //cc.log(">>>>>>>>pos:",pos)
         let isInEdge = this.isInEdgeByNode(pos,this._bgMaterialNode);
-        //cc.log(">>>>>>>>isInEdge:",isInEdge)
         //如果是边缘范围,把当前点击的坐标赋值给this.touchFirstPos
         if (isInEdge){
             this.touchFirstPos = pos;
