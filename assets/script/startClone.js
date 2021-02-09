@@ -1,4 +1,9 @@
 
+const TouchType = {
+    Inside:1,
+    InEdge:2,
+    Outside:3
+}
 
 cc.Class({
     extends: cc.Component,
@@ -9,7 +14,7 @@ cc.Class({
 
     initData:function() {
         this.touchFirstPos = null;      //咪牌的第一个坐标点
-        this.touchSecondPos = null;     //咪牌的第二个坐标点
+        this.rotateFirstPos = null;     //旋转牌第一个坐标点
         this.pukeDisRatio = 0.1;        //扑克边缘的大小比例(意思就是获取图片的宽度或高度的1/10为边缘大小)
     },
 
@@ -18,8 +23,10 @@ cc.Class({
 
         this.initData();
 
-        this._bgMaterialNode = this.node.getChildByName("cardBg")
-        this._zmMaterialNode = this._bgMaterialNode.getChildByName("cardNum")
+        this.labelAngle = this.node.getChildByName("labelAngle").getComponent(cc.Label);
+
+        this._bgMaterialNode = this.node.getChildByName("cardBg");
+        this._zmMaterialNode = this._bgMaterialNode.getChildByName("cardNum");
         this._bgMaterial = this._bgMaterialNode.getComponent(cc.Sprite).getMaterials()[0];
         this._zmMaterial = this._zmMaterialNode.getComponent(cc.Sprite).getMaterials()[0];
         this.initBox = this._bgMaterialNode.getBoundingBoxToWorld();
@@ -68,8 +75,8 @@ cc.Class({
     },
 
     //判断一个点是否在扑克的边缘范围内(这里要考虑扑克旋转任意角度)
-    //这个功能其实可以使用cocos的PolygonCollider组件实现多边形点击判断，但是考虑用的扑克大小可能不一样，一个个点编辑太麻烦了，用代码实现兼容性更好点
-    isInEdgeByNode:function(pos,node){
+    //这个功能其实可以使用cocos的PolygonCollider组件实现多边形点击判断，但是考虑用的扑克大小可能不一样，一个一个点编辑太麻烦了，用代码实现兼容性更好点
+    getTouchTypeByNode:function(pos,node){
         //这里要把扑克的坐标转换成世界坐标，方便判断触摸点是否在扑克内
         let nodePos = node.convertToWorldSpaceAR(cc.v2(0,0));
         let anchorX = node.anchorX;
@@ -122,65 +129,65 @@ cc.Class({
         let ylistInside = [inside_left_up.y,inside_left_bottom.y,inside_right_bottom.y,inside_right_up.y];
         //如果点在扑克范围 并且 不在内部范围 就是边缘范围
         if (this.isInside(4,xlist,ylist,pos) && !this.isInside(4,xlistInside,ylistInside,pos)){
-            return true;
+            return TouchType.InEdge;
+        }else if (this.isInside(4,xlistInside,ylistInside,pos)){
+            return TouchType.Inside;
         }
-        return false;
+        return TouchType.Outside;
+    },
+
+    //重置坐标
+    resetPos:function(){
+        let initPos = cc.v2(0,0);
+        this._bgMaterial.effect.setProperty('firstPos',initPos);
+        this._bgMaterial.effect.setProperty('secondPos',initPos);
+        this._zmMaterial.effect.setProperty('firstPos', initPos);
+        this._zmMaterial.effect.setProperty('secondPos', initPos);
     },
 
     //传入两个点
     runActionCard:function(firstPos,secondPos){
-        let node = this._bgMaterialNode
-        let angle = node.angle;
-        let nodePos = node.convertToWorldSpaceAR(cc.v2(0,0));
-        let anchorX = node.anchorX;
-        let anchorY = node.anchorY;
-        let pWidth = node.width*node.scaleX;
-        let pHeight = node.height*node.scaleY;
-
-        //----左下角作为图片原点
-        let left_bottom = cc.v2(-pWidth*anchorX+nodePos.x,-pHeight*anchorY+nodePos.y);
-        left_bottom = this.getRotatePos(nodePos,left_bottom,angle);
-        //在着色器中,v_uv0的原点是在图片的左上角,向下是Y轴的正坐标(总长度为1),向右是X轴的正坐标(总长度为1)
-        //原点的位置会跟随图片旋转，一直保持在图片位置左上角
-        //Y轴向下这么设计，可能是opengl是右手坐标系的原因
-        //这里要转换一下坐标，用相对图片坐标百分比的坐标
-
-        //所以，这里要获取两点旋转之前的坐标，角度相反就可以获取到(这里可以思考一下)
-        // firstPos = this.getRotatePos(nodePos,firstPos,-angle);
-        // secondPos = this.getRotatePos(nodePos,secondPos,-angle);
-        // //这里是获取图片未旋转之前的左上角坐标
-        
-        
-        // let left_up = cc.v2(-pWidth*anchorX+nodePos.x,pHeight*(1-anchorY)+nodePos.y);
-        // //获取百分比坐标
-        // firstPos.x = (firstPos.x - left_up.x)/pWidth;
-        // firstPos.y = (left_up.y - firstPos.y)/pHeight;  //向下是正方向,所以是left_up.y - firstPos.y
-        // secondPos.x = (secondPos.x - left_up.x)/pWidth;
-        // secondPos.y = (left_up.y - secondPos.y)/pHeight;  //向下是正方向,所以是secondPos.y - secondPos.y
-
-        //cc.log(">>>>>>>>>>>>firstPos:",firstPos);
-        //cc.log(">>>>>>>>>>>>secondPos:",secondPos);
-        //接下把参数传给着色器
         this._bgMaterial.effect.setProperty('firstPos',firstPos);
         this._bgMaterial.effect.setProperty('secondPos',secondPos);
         this._zmMaterial.effect.setProperty('firstPos', firstPos);
         this._zmMaterial.effect.setProperty('secondPos', secondPos);
-        this._zmMaterial.effect.setProperty('originPos', left_bottom);
-        this._zmMaterial.effect.setProperty('xyRadio', pHeight/pWidth);
+    },
 
-        //扑克对称处理,也取扑克左上角作为原点,必须是旋转后的坐标
-        //let originPos = this.getRotatePos(nodePos,left_up,angle);
-        // this._zmMaterial.effect.setProperty('originPos', originPos);
-        // this._zmMaterial.effect.setProperty('sprWidth', pWidth);
-        // this._zmMaterial.effect.setProperty('sprHeight', pHeight);
+    //获取角度
+    getAngleByPos:function(pos1,pos2){
+        var disX = pos2.x - pos1.x;
+        var disY = pos2.y - pos1.y;
+        if (disX == 0){
+            if (disY > 0){
+                return 90;
+            }else{
+                return 180;
+            }
+        }
+        //获取正切值
+        var tanValue = Math.atan(disY/disX);
+        var rotation = 180/Math.PI*tanValue;
+        return rotation;
+    },
+
+    //设置旋转角度
+    runRatationAction:function(firstPos,secondPos){
+        let originPos = this._bgMaterialNode.convertToWorldSpaceAR(cc.v2(0,0));;
+        let angle_1 = this.getAngleByPos(originPos,firstPos);
+        let angle_2 = this.getAngleByPos(originPos,secondPos);
+        this._bgMaterialNode.angle = this.backAngle + (angle_2 - angle_1);
+        this.labelAngle.string = this._bgMaterialNode.angle;
     },
 
 
     touchBegan:function(event){
         let pos = event.getLocation();
-        let isInEdge = this.isInEdgeByNode(pos,this._bgMaterialNode);
+        let touchTp = this.getTouchTypeByNode(pos,this._bgMaterialNode);
         //如果是边缘范围,把当前点击的坐标赋值给this.touchFirstPos
-        if (isInEdge){
+        if (touchTp == TouchType.Inside){   //如果是点击内部区域
+            this.rotateFirstPos = pos;
+            this.backAngle = this._bgMaterialNode.angle;
+        }else if (touchTp == TouchType.InEdge){   //点击边缘区域
             this.touchFirstPos = pos;
         }
     },
@@ -190,10 +197,12 @@ cc.Class({
         //只有在第一点存在的情况下，也就是已经触摸过牌的边缘的情况下才处理搓牌动画
         if (this.touchFirstPos){
             this.runActionCard(this.touchFirstPos,pos);
+        }else if (this.rotateFirstPos){
+            this.runRatationAction(this.rotateFirstPos,pos);
         }else{
-            let isInEdge = this.isInEdgeByNode(pos,this._bgMaterialNode);
+            let touchTp = this.getTouchTypeByNode(pos,this._bgMaterialNode);
             //如果是边缘范围,把当前点击的坐标赋值给this.touchFirstPos
-            if (isInEdge){
+            if (touchTp == TouchType.InEdge){
                 this.touchFirstPos = pos;
             }
         }
@@ -202,10 +211,14 @@ cc.Class({
 
     touchEnded:function(event){
         this.touchFirstPos = null;
+        this.rotateFirstPos = null;
+        this.resetPos();
     },
 
     touchCancel:function(event){
         this.touchFirstPos = null;
+        this.rotateFirstPos = null;
+        this.resetPos();
     },
 
     
