@@ -29,9 +29,10 @@ cc.Class({
         this._zmMaterialNode = this._bgMaterialNode.getChildByName("cardNum");
         this._bgMaterial = this._bgMaterialNode.getComponent(cc.Sprite).getMaterials()[0];
         this._zmMaterial = this._zmMaterialNode.getComponent(cc.Sprite).getMaterials()[0];
-        this.initBox = this._bgMaterialNode.getBoundingBoxToWorld();
-        this.box = this._bgMaterialNode.getBoundingBoxToWorld();
-        //cc.log(">>>>>>>>this.box",this.box,this._bgMaterialNode.width)
+
+        //设置设置阴影部分的最大距离,取图片宽度的10分一座位距离
+        let shadowDis = this._bgMaterialNode.width*this._bgMaterialNode.scaleX*0.1
+        this._zmMaterial.effect.setProperty('shadowDis', shadowDis);
 
         this.touchLayer = this.node.getChildByName("touchLayer");
 
